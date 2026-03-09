@@ -39,7 +39,32 @@ const CHUNK_SIZE = Number(process.env.NETLIFY_RAG_CHUNK_SIZE || '1000')
 const CHUNK_OVERLAP = Number(process.env.NETLIFY_RAG_CHUNK_OVERLAP || '200')
 
 function getRagStore() {
-  return getStore(DEFAULT_STORE_NAME)
+  const siteID =
+    process.env.NETLIFY_BLOBS_SITE_ID ||
+    process.env.NETLIFY_SITE_ID ||
+    process.env.SITE_ID
+  const token =
+    process.env.NETLIFY_BLOBS_TOKEN ||
+    process.env.NETLIFY_AUTH_TOKEN ||
+    process.env.BLOBS_TOKEN
+  const apiURL = process.env.NETLIFY_BLOBS_API_URL
+
+  if (siteID && token) {
+    return getStore(DEFAULT_STORE_NAME, {
+      siteID,
+      token,
+      apiURL,
+    })
+  }
+
+  try {
+    return getStore(DEFAULT_STORE_NAME)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Netlify Blobs initialization failed.'
+    throw new Error(
+      `${message} Configure manual credentials with NETLIFY_BLOBS_SITE_ID and NETLIFY_BLOBS_TOKEN (optional NETLIFY_BLOBS_API_URL).`,
+    )
+  }
 }
 
 function normalizeText(value: string): string {
