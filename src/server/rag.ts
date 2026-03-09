@@ -17,12 +17,6 @@ interface RagChunk {
   updatedAt: string
 }
 
-interface XmlRecord {
-  title?: string
-  body: string
-  updatedAt?: string
-}
-
 interface RagIndexMeta {
   indexedAt: string
   indexed: number
@@ -38,8 +32,9 @@ export interface RagIndexStatus {
 const DEFAULT_STORE_NAME = process.env.NETLIFY_RAG_STORE || 'civic-rag'
 const DEFAULT_TOP_K = Number(process.env.NETLIFY_RAG_TOP_K || '5')
 const INDEX_FETCH_TIMEOUT_MS = Number(process.env.NETLIFY_RAG_FETCH_TIMEOUT_MS || '15000')
-const MAX_XML_RECORDS_PER_SOURCE = Number(process.env.NETLIFY_RAG_MAX_XML_RECORDS || '150')
 const MAX_CHUNKS_PER_SOURCE = Number(process.env.NETLIFY_RAG_MAX_CHUNKS_PER_SOURCE || '500')
+const CHUNK_SIZE = Number(process.env.NETLIFY_RAG_CHUNK_SIZE || '1000')
+const CHUNK_OVERLAP = Number(process.env.NETLIFY_RAG_CHUNK_OVERLAP || '200')
 
 function getRagStore() {
   return getStore(DEFAULT_STORE_NAME)
@@ -54,105 +49,35 @@ function normalizeText(value: string): string {
     .trim()
 }
 
-function isLikelyXml(rawText: string, contentType: string | null): boolean {
-  if (contentType && /xml|rss|atom/i.test(contentType)) {
-    return true
-  }
-
-  const start = rawText.slice(0, 300).toLowerCase()
-  return start.includes('<?xml') || start.includes('<rss') || start.includes('<feed')
-}
-
-function decodeXmlEntities(value: string): string {
-  return value
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-}
-
-function getFirstTagValue(block: string, tags: string[]): string | undefined {
-  for (const tag of tags) {
-    const regex = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i')
-    const match = block.match(regex)
-    if (match?.[1]) {
-      const value = normalizeText(decodeXmlEntities(match[1]))
-      if (value) {
-        return value
-      }
-    }
-  }
-
-  return undefined
-}
-
-function extractXmlBlocks(rawText: string, tag: 'item' | 'entry'): string[] {
-  const blocks: string[] = []
-  const lower = rawText.toLowerCase()
-  const openNeedle = `<${tag}`
-  const closeNeedle = `</${tag}>`
-
-  let cursor = 0
-  while (cursor < rawText.length) {
-    const start = lower.indexOf(openNeedle, cursor)
-    if (start === -1) break
-
-    const openEnd = lower.indexOf('>', start)
-    if (openEnd === -1) break
-
-    const close = lower.indexOf(closeNeedle, openEnd + 1)
-    if (close === -1) break
-
-    const end = close + closeNeedle.length
-    blocks.push(rawText.slice(start, end))
-    cursor = end
-  }
-
-  return blocks
-}
-
-function parseXmlRecords(rawText: string): XmlRecord[] {
-  const records: XmlRecord[] = []
-  const itemBlocks = extractXmlBlocks(rawText, 'item')
-  const entryBlocks = itemBlocks.length > 0 ? [] : extractXmlBlocks(rawText, 'entry')
-  const entryMatches = itemBlocks.length > 0 ? itemBlocks : entryBlocks
-
-  if (entryMatches.length === 0) {
-    const normalized = normalizeText(decodeXmlEntities(rawText))
-    if (normalized.length > 80) {
-      records.push({ body: normalized })
-    }
-    return records
-  }
-
-  for (const entry of entryMatches) {
-    const title = getFirstTagValue(entry, ['title'])
-    const body =
-      getFirstTagValue(entry, ['description', 'summary', 'content:encoded', 'content']) ||
-      normalizeText(decodeXmlEntities(entry))
-    const updatedAt = getFirstTagValue(entry, ['updated', 'pubDate', 'lastBuildDate', 'dc:date'])
-
-    if (body.length > 40) {
-      records.push({ title, body, updatedAt })
-    }
-  }
-
-  return records
-}
-
-function splitIntoChunks(sourceName: string, sourceUrl: string, rawText: string, updatedAt?: string): RagChunk[] {
+function splitIntoChunks(sourceName: string, sourceUrl: string, rawText: string): RagChunk[] {
   const text = normalizeText(rawText)
   if (!text) return []
 
-  const maxLen = 1200
-  const overlap = 180
+  const maxLen = Math.max(300, CHUNK_SIZE)
+  const overlap = Math.max(0, Math.min(CHUNK_OVERLAP, maxLen - 100))
   const chunks: RagChunk[] = []
+  const separators = ['. ', '! ', '? ', '; ', ', ', ' ']
+
+  const resolveChunkEnd = (start: number): number => {
+    const softEnd = Math.min(start + maxLen, text.length)
+    if (softEnd >= text.length) return text.length
+
+    const windowStart = Math.max(start + 120, softEnd - 220)
+    const window = text.slice(windowStart, softEnd)
+
+    for (const sep of separators) {
+      const idx = window.lastIndexOf(sep)
+      if (idx !== -1) {
+        return windowStart + idx + sep.length
+      }
+    }
+
+    return softEnd
+  }
 
   let start = 0
   while (start < text.length) {
-    const end = Math.min(start + maxLen, text.length)
+    const end = resolveChunkEnd(start)
     const slice = text.slice(start, end).trim()
     if (slice.length > 80) {
       const id = createHash('sha256').update(`${sourceUrl}-${start}-${slice}`).digest('hex')
@@ -161,7 +86,7 @@ function splitIntoChunks(sourceName: string, sourceUrl: string, rawText: string,
         sourceName,
         sourceUrl,
         text: slice,
-        updatedAt: updatedAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
     }
 
@@ -234,19 +159,8 @@ export async function indexSourcesFromUrls(sourceUrls: string[]): Promise<{ inde
     if (!response.ok) continue
 
     const raw = await response.text()
-    const contentType = response.headers.get('content-type')
     const sourceName = new URL(sourceUrl).hostname
-    const chunks = isLikelyXml(raw, contentType)
-      ? parseXmlRecords(raw).slice(0, MAX_XML_RECORDS_PER_SOURCE).flatMap((record, index) => {
-          const combined = record.title ? `${record.title}\n${record.body}` : record.body
-          return splitIntoChunks(
-            sourceName,
-            `${sourceUrl}#entry-${index + 1}`,
-            combined,
-            record.updatedAt,
-          )
-        })
-      : splitIntoChunks(sourceName, sourceUrl, raw)
+    const chunks = splitIntoChunks(sourceName, sourceUrl, raw)
 
     const boundedChunks = chunks.slice(0, MAX_CHUNKS_PER_SOURCE)
 
