@@ -9,38 +9,172 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SigninRouteImport } from './routes/signin'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
+import { Route as DashboardReportRouteImport } from './routes/dashboard/report'
+import { Route as DashboardMyReportsRouteImport } from './routes/dashboard/my-reports'
+import { Route as DashboardAssistantRouteImport } from './routes/dashboard/assistant'
+import { Route as DashboardAlertsRouteImport } from './routes/dashboard/alerts'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SigninRoute = SigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardReportRoute = DashboardReportRouteImport.update({
+  id: '/report',
+  path: '/report',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardMyReportsRoute = DashboardMyReportsRouteImport.update({
+  id: '/my-reports',
+  path: '/my-reports',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAssistantRoute = DashboardAssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardAlertsRoute = DashboardAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => DashboardRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
+  '/dashboard/alerts': typeof DashboardAlertsRoute
+  '/dashboard/assistant': typeof DashboardAssistantRoute
+  '/dashboard/my-reports': typeof DashboardMyReportsRoute
+  '/dashboard/report': typeof DashboardReportRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
+  '/dashboard/alerts': typeof DashboardAlertsRoute
+  '/dashboard/assistant': typeof DashboardAssistantRoute
+  '/dashboard/my-reports': typeof DashboardMyReportsRoute
+  '/dashboard/report': typeof DashboardReportRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteWithChildren
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
+  '/dashboard/alerts': typeof DashboardAlertsRoute
+  '/dashboard/assistant': typeof DashboardAssistantRoute
+  '/dashboard/my-reports': typeof DashboardMyReportsRoute
+  '/dashboard/report': typeof DashboardReportRoute
+  '/dashboard/settings': typeof DashboardSettingsRoute
+  '/dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/signin'
+    | '/signup'
+    | '/dashboard/alerts'
+    | '/dashboard/assistant'
+    | '/dashboard/my-reports'
+    | '/dashboard/report'
+    | '/dashboard/settings'
+    | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/signin'
+    | '/signup'
+    | '/dashboard/alerts'
+    | '/dashboard/assistant'
+    | '/dashboard/my-reports'
+    | '/dashboard/report'
+    | '/dashboard/settings'
+    | '/dashboard'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/signin'
+    | '/signup'
+    | '/dashboard/alerts'
+    | '/dashboard/assistant'
+    | '/dashboard/my-reports'
+    | '/dashboard/report'
+    | '/dashboard/settings'
+    | '/dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRouteWithChildren
+  SigninRoute: typeof SigninRoute
+  SignupRoute: typeof SignupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signin': {
+      id: '/signin'
+      path: '/signin'
+      fullPath: '/signin'
+      preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,12 +182,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings': {
+      id: '/dashboard/settings'
+      path: '/settings'
+      fullPath: '/dashboard/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/report': {
+      id: '/dashboard/report'
+      path: '/report'
+      fullPath: '/dashboard/report'
+      preLoaderRoute: typeof DashboardReportRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/my-reports': {
+      id: '/dashboard/my-reports'
+      path: '/my-reports'
+      fullPath: '/dashboard/my-reports'
+      preLoaderRoute: typeof DashboardMyReportsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/assistant': {
+      id: '/dashboard/assistant'
+      path: '/assistant'
+      fullPath: '/dashboard/assistant'
+      preLoaderRoute: typeof DashboardAssistantRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/alerts': {
+      id: '/dashboard/alerts'
+      path: '/alerts'
+      fullPath: '/dashboard/alerts'
+      preLoaderRoute: typeof DashboardAlertsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
   }
 }
 
+interface DashboardRouteChildren {
+  DashboardAlertsRoute: typeof DashboardAlertsRoute
+  DashboardAssistantRoute: typeof DashboardAssistantRoute
+  DashboardMyReportsRoute: typeof DashboardMyReportsRoute
+  DashboardReportRoute: typeof DashboardReportRoute
+  DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+}
+
+const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAlertsRoute: DashboardAlertsRoute,
+  DashboardAssistantRoute: DashboardAssistantRoute,
+  DashboardMyReportsRoute: DashboardMyReportsRoute,
+  DashboardReportRoute: DashboardReportRoute,
+  DashboardSettingsRoute: DashboardSettingsRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+}
+
+const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
+  DashboardRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRouteWithChildren,
+  SigninRoute: SigninRoute,
+  SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

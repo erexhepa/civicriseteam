@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { ConvexClientProvider } from '../convex'
+import { AuthProvider } from '../contexts/AuthContext'
 
 import appCss from '../styles.css?url'
 
@@ -20,7 +21,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Chat Starter',
+        title: 'CivicRise – AI Copilot for Montgomery Citizens',
       },
     ],
     links: [
@@ -47,7 +48,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <ConvexClientProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ConvexClientProvider>
         <Scripts />
       </body>
