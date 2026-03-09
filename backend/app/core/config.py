@@ -8,7 +8,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    anthropic_api_key: str = ""
+    llm_provider: str = "anthropic"
+    llm_api_key: str = ""
+    llm_model: str = ""
+    llm_temperature: float = 0.7
     app_name: str = "Civic Copilot API"
 
 

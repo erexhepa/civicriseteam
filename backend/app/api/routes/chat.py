@@ -15,10 +15,10 @@ async def chat_stream(
     chat_service: ChatService = Depends(get_chat_service),
 ):
     """Stream chat response as NDJSON (content_block_delta lines). Frontend expects this format."""
-    if not settings.anthropic_api_key:
+    if not settings.llm_api_key:
         raise HTTPException(
             status_code=503,
-            detail="Missing API key: set ANTHROPIC_API_KEY in the backend environment.",
+            detail="Missing API key: set LLM_API_KEY in the backend environment for the selected provider.",
         )
     if not body.messages:
         raise HTTPException(status_code=400, detail="No valid messages to send")

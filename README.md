@@ -5,7 +5,7 @@ Monorepo: **frontend** (React) and **backend** (Python FastAPI with LLM agents).
 ## Structure
 
 - **frontend/** – React app (TanStack Router, Convex, Vite). Chat UI calls the backend for AI.
-- **backend/** – FastAPI app (SOLID layout). Endpoints consume LLM agent services (e.g. Anthropic Claude).
+- **backend/** – FastAPI app (SOLID layout). Endpoints consume LLM agent services (provider-agnostic: Anthropic, OpenAI, etc.).
 
 ## Run locally
 
@@ -17,7 +17,7 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
-# Set ANTHROPIC_API_KEY in .env
+# Set LLM_PROVIDER and LLM_API_KEY in .env (see backend/.env.example)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -48,7 +48,7 @@ Set `VITE_CONVEX_URL` in `frontend/.env` with the Convex deployment URL.
 
 ## Deploy
 
-- **Frontend:** Netlify (build base: `frontend`). Set `VITE_API_URL` to your backend URL.
-- **Backend:** Deploy the `backend/` app to any Python host (Railway, Render, Fly.io, etc.). Set `ANTHROPIC_API_KEY` and CORS origins.
+- **Frontend:** Netlify. In Netlify (Site settings → Build & deploy → Build settings), set **Base directory** = `frontend`. Set `VITE_API_URL` to your backend URL.
+- **Backend:** Deploy the `backend/` app to any Python host (Railway, Render, Fly.io, etc.). Set `LLM_PROVIDER` and `LLM_API_KEY` (and CORS origins).
 
 See **frontend/README.md** for full frontend docs and **backend/README.md** for backend setup.

@@ -22,7 +22,7 @@ export function TopBanner() {
       >
         <X className="w-4 h-4" />
       </button>
-      <p className='px-4'>This app works with <a href='https://docs.netlify.com/build/ai-gateway/overview/' className='underline'>Netlify AI Gateway</a>. If you want to use your own Anthropic key, update <a href='https://docs.netlify.com/build/environment-variables/overview/' className='underline'>the environment variables</a> in your project.</p>
+      <p className='px-4'>Chat is powered by the backend. Configure <code className="bg-orange-600/80 px-1 rounded">LLM_PROVIDER</code> and <code className="bg-orange-600/80 px-1 rounded">LLM_API_KEY</code> in the backend environment (see backend README).</p>
     </div>
   );
 }

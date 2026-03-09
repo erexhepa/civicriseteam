@@ -1,14 +1,21 @@
 import * as Sentry from '@sentry/react';
 
+function isValidSentryDsn(dsn: string | undefined): boolean {
+  if (!dsn || typeof dsn !== 'string') return false;
+  const s = dsn.trim();
+  // Skip placeholder or obviously invalid values
+  if (!s || s.includes('your-sentry') || s === 'your-sentry-dsn-here') return false;
+  return s.startsWith('https://') && s.includes('@');
+}
+
 export function initSentry() {
-  // Skip Sentry initialization if DSN is not defined
-  if (!import.meta.env.VITE_SENTRY_DSN) {
-    console.log('Sentry DSN not found. Skipping Sentry initialization.');
+  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+  if (!isValidSentryDsn(dsn)) {
     return;
   }
 
   Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
+    dsn,
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({

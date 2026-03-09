@@ -1,4 +1,4 @@
-import { Store } from '@tanstack/store'
+import { createStore } from '@tanstack/store'
 import type { Message } from '../utils/ai'
 
 // Types
@@ -32,7 +32,7 @@ const initialState: State = {
   isBannerVisible: true
 }
 
-export const store = new Store<State>(initialState)
+export const store = createStore<State>(initialState)
 
 export const actions = {
   // Prompt actions

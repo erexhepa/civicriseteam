@@ -1,8 +1,11 @@
 import type { ReactNode } from 'react';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 
-// Get the Convex URL from environment variables
-const convexUrl = import.meta.env.VITE_CONVEX_URL as string | undefined;
+// Get the Convex URL from environment variables (strip trailing slash to avoid double slash in WebSocket path)
+const rawUrl = import.meta.env.VITE_CONVEX_URL as string | undefined;
+const convexUrl = typeof rawUrl === 'string' && rawUrl.trim()
+  ? rawUrl.trim().replace(/\/$/, '')
+  : undefined;
 
 // Initialize the Convex client only if URL is provided
 const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;

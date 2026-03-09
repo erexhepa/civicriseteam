@@ -42,8 +42,10 @@ class AnthropicChatAgent(ChatAgentProtocol):
     """Concrete LLM chat agent using Claude (Anthropic) with streaming."""
 
     def __init__(self, api_key: str | None = None):
-        self._api_key = api_key or settings.anthropic_api_key
+        self._api_key = api_key or settings.llm_api_key
         self._client = AsyncAnthropic(api_key=self._api_key, timeout=30.0) if self._api_key else None
+        self._model = settings.llm_model or "claude-sonnet-4-5-20250929"
+        self._temperature = settings.llm_temperature
 
     async def stream(
         self,
@@ -52,7 +54,7 @@ class AnthropicChatAgent(ChatAgentProtocol):
     ) -> AsyncIterator[str]:
         """Stream NDJSON chunks: each line has content_block_delta + delta.text for frontend."""
         if not self._api_key:
-            yield _ndjson_chunk({"type": "error", "error": "Missing ANTHROPIC_API_KEY"})
+            yield _ndjson_chunk({"type": "error", "error": "Missing LLM_API_KEY for this provider"})
             return
 
         formatted = [{"role": m.role, "content": m.content.strip()} for m in messages if m.content.strip()]
@@ -60,10 +62,11 @@ class AnthropicChatAgent(ChatAgentProtocol):
             return
 
         async with self._client.messages.stream(
-            model="claude-sonnet-4-5-20250929",
+            model=self._model,
             max_tokens=4096,
             system=system_prompt,
             messages=formatted,
+            temperature=self._temperature,
         ) as stream:
             async for event in stream:
                 if event.type == "text":
