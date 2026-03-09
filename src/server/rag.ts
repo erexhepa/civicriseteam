@@ -21,6 +21,7 @@ interface RagIndexMeta {
   indexedAt: string
   indexed: number
   sourceCount: number
+  activePrefix?: string
 }
 
 export interface RagIndexStatus {
@@ -33,6 +34,7 @@ const DEFAULT_STORE_NAME = process.env.NETLIFY_RAG_STORE || 'civic-rag'
 const DEFAULT_TOP_K = Number(process.env.NETLIFY_RAG_TOP_K || '5')
 const INDEX_FETCH_TIMEOUT_MS = Number(process.env.NETLIFY_RAG_FETCH_TIMEOUT_MS || '15000')
 const MAX_CHUNKS_PER_SOURCE = Number(process.env.NETLIFY_RAG_MAX_CHUNKS_PER_SOURCE || '500')
+const MAX_SOURCES_PER_RUN = Number(process.env.NETLIFY_RAG_MAX_SOURCES_PER_RUN || '10')
 const CHUNK_SIZE = Number(process.env.NETLIFY_RAG_CHUNK_SIZE || '1000')
 const CHUNK_OVERLAP = Number(process.env.NETLIFY_RAG_CHUNK_OVERLAP || '200')
 
@@ -141,10 +143,8 @@ function scoreChunk(query: string, chunk: RagChunk, mode: AppMode, residentZip?:
 
 export async function indexSourcesFromUrls(sourceUrls: string[]): Promise<{ indexed: number; sourceCount: number }> {
   const store = getRagStore()
-  const uniqueUrls = Array.from(new Set(sourceUrls.map((url) => url.trim()).filter(Boolean)))
-
-  // Reset store to avoid large parallel deletions that can fail in serverless runtimes.
-  await store.deleteAll()
+  const uniqueUrls = Array.from(new Set(sourceUrls.map((url) => url.trim()).filter(Boolean))).slice(0, MAX_SOURCES_PER_RUN)
+  const runPrefix = `chunk:${Date.now()}:`
 
   let indexed = 0
 
@@ -166,7 +166,7 @@ export async function indexSourcesFromUrls(sourceUrls: string[]): Promise<{ inde
 
     for (const chunk of boundedChunks) {
       try {
-        await store.setJSON(`chunk:${chunk.id}`, chunk, {
+        await store.setJSON(`${runPrefix}${chunk.id}`, chunk, {
           metadata: {
             sourceName: chunk.sourceName,
             sourceUrl: chunk.sourceUrl,
@@ -185,6 +185,7 @@ export async function indexSourcesFromUrls(sourceUrls: string[]): Promise<{ inde
     indexedAt: new Date().toISOString(),
     indexed,
     sourceCount: uniqueUrls.length,
+    activePrefix: runPrefix,
   })
 
   return {
@@ -201,7 +202,9 @@ export async function retrieveFromRag(options: {
 }): Promise<RetrievedChunk[]> {
   const store = getRagStore()
   const topK = options.topK ?? DEFAULT_TOP_K
-  const list = await store.list({ prefix: 'chunk:' })
+  const meta = await store.get('meta:index', { type: 'json' }) as RagIndexMeta | null
+  const activePrefix = meta?.activePrefix || 'chunk:'
+  const list = await store.list({ prefix: activePrefix })
 
   if (list.blobs.length === 0) {
     return []
@@ -234,7 +237,7 @@ export async function retrieveFromRag(options: {
 export async function getRagIndexStatus(): Promise<RagIndexStatus> {
   const store = getRagStore()
   const meta = await store.get('meta:index', { type: 'json' }) as RagIndexMeta | null
-  const chunkList = await store.list({ prefix: 'chunk:' })
+  const chunkList = await store.list({ prefix: meta?.activePrefix || 'chunk:' })
 
   return {
     indexedAt: meta?.indexedAt ?? null,
