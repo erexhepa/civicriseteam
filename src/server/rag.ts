@@ -85,9 +85,36 @@ function getFirstTagValue(block: string, tags: string[]): string | undefined {
   return undefined
 }
 
+function extractXmlBlocks(rawText: string, tag: 'item' | 'entry'): string[] {
+  const blocks: string[] = []
+  const lower = rawText.toLowerCase()
+  const openNeedle = `<${tag}`
+  const closeNeedle = `</${tag}>`
+
+  let cursor = 0
+  while (cursor < rawText.length) {
+    const start = lower.indexOf(openNeedle, cursor)
+    if (start === -1) break
+
+    const openEnd = lower.indexOf('>', start)
+    if (openEnd === -1) break
+
+    const close = lower.indexOf(closeNeedle, openEnd + 1)
+    if (close === -1) break
+
+    const end = close + closeNeedle.length
+    blocks.push(rawText.slice(start, end))
+    cursor = end
+  }
+
+  return blocks
+}
+
 function parseXmlRecords(rawText: string): XmlRecord[] {
   const records: XmlRecord[] = []
-  const entryMatches = rawText.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || []
+  const itemBlocks = extractXmlBlocks(rawText, 'item')
+  const entryBlocks = itemBlocks.length > 0 ? [] : extractXmlBlocks(rawText, 'entry')
+  const entryMatches = itemBlocks.length > 0 ? itemBlocks : entryBlocks
 
   if (entryMatches.length === 0) {
     const normalized = normalizeText(decodeXmlEntities(rawText))
