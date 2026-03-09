@@ -17,6 +17,18 @@ interface RagChunk {
   updatedAt: string
 }
 
+interface RagIndexMeta {
+  indexedAt: string
+  indexed: number
+  sourceCount: number
+}
+
+export interface RagIndexStatus {
+  indexedAt: string | null
+  indexedChunks: number
+  indexedSources: number
+}
+
 const DEFAULT_STORE_NAME = process.env.NETLIFY_RAG_STORE || 'civic-rag'
 const DEFAULT_TOP_K = Number(process.env.NETLIFY_RAG_TOP_K || '5')
 
@@ -176,4 +188,16 @@ export async function retrieveFromRag(options: {
     snippet: chunk.text,
     note: `score=${score.toFixed(3)}; source=${chunk.sourceUrl}`,
   }))
+}
+
+export async function getRagIndexStatus(): Promise<RagIndexStatus> {
+  const store = getRagStore()
+  const meta = await store.get('meta:index', { type: 'json' }) as RagIndexMeta | null
+  const chunkList = await store.list({ prefix: 'chunk:' })
+
+  return {
+    indexedAt: meta?.indexedAt ?? null,
+    indexedChunks: chunkList.blobs.length,
+    indexedSources: meta?.sourceCount ?? 0,
+  }
 }

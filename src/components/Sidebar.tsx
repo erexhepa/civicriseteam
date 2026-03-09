@@ -41,6 +41,12 @@ export const Sidebar = ({
       >
         Dispatcher View
       </Link>
+      <Link
+        to="/rag-admin"
+        className="mt-2 flex items-center justify-center w-full gap-2 px-3 py-2 text-sm font-medium text-orange-200 rounded-lg border border-orange-500/40 hover:bg-orange-500/10"
+      >
+        RAG Admin
+      </Link>
     </div>
 
     {/* Chat List */}

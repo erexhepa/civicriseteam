@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RagAdminRouteImport } from './routes/rag-admin'
 import { Route as DispatcherRouteImport } from './routes/dispatcher'
 import { Route as IndexRouteImport } from './routes/index'
 
+const RagAdminRoute = RagAdminRouteImport.update({
+  id: '/rag-admin',
+  path: '/rag-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DispatcherRoute = DispatcherRouteImport.update({
   id: '/dispatcher',
   path: '/dispatcher',
@@ -26,31 +32,42 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dispatcher': typeof DispatcherRoute
+  '/rag-admin': typeof RagAdminRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dispatcher': typeof DispatcherRoute
+  '/rag-admin': typeof RagAdminRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dispatcher': typeof DispatcherRoute
+  '/rag-admin': typeof RagAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dispatcher'
+  fullPaths: '/' | '/dispatcher' | '/rag-admin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dispatcher'
-  id: '__root__' | '/' | '/dispatcher'
+  to: '/' | '/dispatcher' | '/rag-admin'
+  id: '__root__' | '/' | '/dispatcher' | '/rag-admin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DispatcherRoute: typeof DispatcherRoute
+  RagAdminRoute: typeof RagAdminRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/rag-admin': {
+      id: '/rag-admin'
+      path: '/rag-admin'
+      fullPath: '/rag-admin'
+      preLoaderRoute: typeof RagAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dispatcher': {
       id: '/dispatcher'
       path: '/dispatcher'
@@ -71,6 +88,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DispatcherRoute: DispatcherRoute,
+  RagAdminRoute: RagAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -21,9 +21,14 @@ function DispatcherPage() {
             <h1 className="text-3xl font-bold">Dispatcher Operations Workspace</h1>
             <p className="text-gray-300 mt-2">Operational triage view for Montgomery service disruptions and 311 workload support.</p>
           </div>
-          <Link to="/" className="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 transition-colors text-sm font-medium">
-            Open Citizen Chat
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/rag-admin" className="px-4 py-2 rounded border border-orange-500/60 text-orange-200 hover:bg-orange-500/10 transition-colors text-sm font-medium">
+              RAG Admin
+            </Link>
+            <Link to="/" className="px-4 py-2 rounded bg-orange-600 hover:bg-orange-500 transition-colors text-sm font-medium">
+              Open Citizen Chat
+            </Link>
+          </div>
         </header>
 
         <section className="grid md:grid-cols-3 gap-4">
