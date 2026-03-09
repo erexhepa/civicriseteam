@@ -37,6 +37,9 @@ export interface RagIndexStatus {
 
 const DEFAULT_STORE_NAME = process.env.NETLIFY_RAG_STORE || 'civic-rag'
 const DEFAULT_TOP_K = Number(process.env.NETLIFY_RAG_TOP_K || '5')
+const INDEX_FETCH_TIMEOUT_MS = Number(process.env.NETLIFY_RAG_FETCH_TIMEOUT_MS || '15000')
+const MAX_XML_RECORDS_PER_SOURCE = Number(process.env.NETLIFY_RAG_MAX_XML_RECORDS || '150')
+const MAX_CHUNKS_PER_SOURCE = Number(process.env.NETLIFY_RAG_MAX_CHUNKS_PER_SOURCE || '500')
 
 function getRagStore() {
   return getStore(DEFAULT_STORE_NAME)
@@ -169,6 +172,16 @@ function splitIntoChunks(sourceName: string, sourceUrl: string, rawText: string,
   return chunks
 }
 
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 function tokenize(value: string): string[] {
   return value
     .toLowerCase()
@@ -205,21 +218,26 @@ export async function indexSourcesFromUrls(sourceUrls: string[]): Promise<{ inde
   const store = getRagStore()
   const uniqueUrls = Array.from(new Set(sourceUrls.map((url) => url.trim()).filter(Boolean)))
 
-  // Clear old chunks so retrieval reflects the latest source snapshots.
-  const existing = await store.list({ prefix: 'chunk:' })
-  await Promise.all(existing.blobs.map((entry) => store.delete(entry.key)))
+  // Reset store to avoid large parallel deletions that can fail in serverless runtimes.
+  await store.deleteAll()
 
   let indexed = 0
 
   for (const sourceUrl of uniqueUrls) {
-    const response = await fetch(sourceUrl)
+    let response: Response
+    try {
+      response = await fetchWithTimeout(sourceUrl, INDEX_FETCH_TIMEOUT_MS)
+    } catch {
+      continue
+    }
+
     if (!response.ok) continue
 
     const raw = await response.text()
     const contentType = response.headers.get('content-type')
     const sourceName = new URL(sourceUrl).hostname
     const chunks = isLikelyXml(raw, contentType)
-      ? parseXmlRecords(raw).flatMap((record, index) => {
+      ? parseXmlRecords(raw).slice(0, MAX_XML_RECORDS_PER_SOURCE).flatMap((record, index) => {
           const combined = record.title ? `${record.title}\n${record.body}` : record.body
           return splitIntoChunks(
             sourceName,
@@ -230,19 +248,23 @@ export async function indexSourcesFromUrls(sourceUrls: string[]): Promise<{ inde
         })
       : splitIntoChunks(sourceName, sourceUrl, raw)
 
-    await Promise.all(
-      chunks.map((chunk) =>
-        store.setJSON(`chunk:${chunk.id}`, chunk, {
+    const boundedChunks = chunks.slice(0, MAX_CHUNKS_PER_SOURCE)
+
+    for (const chunk of boundedChunks) {
+      try {
+        await store.setJSON(`chunk:${chunk.id}`, chunk, {
           metadata: {
             sourceName: chunk.sourceName,
             sourceUrl: chunk.sourceUrl,
             updatedAt: chunk.updatedAt,
           },
-        }),
-      ),
-    )
+        })
+      } catch {
+        // Skip invalid chunk writes and continue indexing remaining entries.
+      }
+    }
 
-    indexed += chunks.length
+    indexed += boundedChunks.length
   }
 
   await store.setJSON('meta:index', {

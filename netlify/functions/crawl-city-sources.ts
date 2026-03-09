@@ -31,11 +31,23 @@ export const handler: Handler = async () => {
       }),
     }
   } catch (error) {
+    const details = error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        }
+      : {
+          name: 'UnknownError',
+          message: 'Unexpected crawler failure',
+        }
+
     return {
       statusCode: 500,
       body: JSON.stringify({
         ok: false,
-        message: error instanceof Error ? error.message : 'Unexpected crawler failure',
+        message: details.message,
+        details,
       }),
     }
   }
