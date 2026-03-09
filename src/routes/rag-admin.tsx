@@ -16,6 +16,21 @@ type StatusResponse = {
   message?: string
 }
 
+async function parseApiResponse<T>(response: Response): Promise<{ payload: T | null; rawText: string }> {
+  const rawText = await response.text()
+  try {
+    return {
+      payload: JSON.parse(rawText) as T,
+      rawText,
+    }
+  } catch {
+    return {
+      payload: null,
+      rawText,
+    }
+  }
+}
+
 function RagAdminPage() {
   const [isRunning, setIsRunning] = useState(false)
   const [isLoadingStatus, setIsLoadingStatus] = useState(true)
@@ -27,10 +42,10 @@ function RagAdminPage() {
     setIsLoadingStatus(true)
     try {
       const response = await fetch('/.netlify/functions/rag-index-status')
-      const payload = (await response.json()) as StatusResponse
+      const { payload, rawText } = await parseApiResponse<StatusResponse>(response)
       setStatus(payload)
       if (!response.ok) {
-        setError(payload.message || 'Failed to load index status.')
+        setError(payload?.message || rawText || 'Failed to load index status.')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load index status.')
@@ -52,11 +67,17 @@ function RagAdminPage() {
         method: 'POST',
       })
 
-      const payload = (await response.json()) as TriggerResponse
+      const { payload, rawText } = await parseApiResponse<TriggerResponse>(response)
+      if (!payload) {
+        setError(rawText || 'Unexpected non-JSON response from indexing endpoint.')
+        setResult(null)
+        return
+      }
+
       setResult(payload)
 
       if (!response.ok) {
-        setError(payload.message || 'Failed to trigger re-indexing.')
+        setError(payload.message || rawText || 'Failed to trigger re-indexing.')
       } else {
         await fetchIndexStatus()
       }

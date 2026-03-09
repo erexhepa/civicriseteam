@@ -17,6 +17,12 @@ interface RagChunk {
   updatedAt: string
 }
 
+interface XmlRecord {
+  title?: string
+  body: string
+  updatedAt?: string
+}
+
 interface RagIndexMeta {
   indexedAt: string
   indexed: number
@@ -45,7 +51,68 @@ function normalizeText(value: string): string {
     .trim()
 }
 
-function splitIntoChunks(sourceName: string, sourceUrl: string, rawText: string): RagChunk[] {
+function isLikelyXml(rawText: string, contentType: string | null): boolean {
+  if (contentType && /xml|rss|atom/i.test(contentType)) {
+    return true
+  }
+
+  const start = rawText.slice(0, 300).toLowerCase()
+  return start.includes('<?xml') || start.includes('<rss') || start.includes('<feed')
+}
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+}
+
+function getFirstTagValue(block: string, tags: string[]): string | undefined {
+  for (const tag of tags) {
+    const regex = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i')
+    const match = block.match(regex)
+    if (match?.[1]) {
+      const value = normalizeText(decodeXmlEntities(match[1]))
+      if (value) {
+        return value
+      }
+    }
+  }
+
+  return undefined
+}
+
+function parseXmlRecords(rawText: string): XmlRecord[] {
+  const records: XmlRecord[] = []
+  const entryMatches = rawText.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || []
+
+  if (entryMatches.length === 0) {
+    const normalized = normalizeText(decodeXmlEntities(rawText))
+    if (normalized.length > 80) {
+      records.push({ body: normalized })
+    }
+    return records
+  }
+
+  for (const entry of entryMatches) {
+    const title = getFirstTagValue(entry, ['title'])
+    const body =
+      getFirstTagValue(entry, ['description', 'summary', 'content:encoded', 'content']) ||
+      normalizeText(decodeXmlEntities(entry))
+    const updatedAt = getFirstTagValue(entry, ['updated', 'pubDate', 'lastBuildDate', 'dc:date'])
+
+    if (body.length > 40) {
+      records.push({ title, body, updatedAt })
+    }
+  }
+
+  return records
+}
+
+function splitIntoChunks(sourceName: string, sourceUrl: string, rawText: string, updatedAt?: string): RagChunk[] {
   const text = normalizeText(rawText)
   if (!text) return []
 
@@ -64,7 +131,7 @@ function splitIntoChunks(sourceName: string, sourceUrl: string, rawText: string)
         sourceName,
         sourceUrl,
         text: slice,
-        updatedAt: new Date().toISOString(),
+        updatedAt: updatedAt || new Date().toISOString(),
       })
     }
 
@@ -122,8 +189,19 @@ export async function indexSourcesFromUrls(sourceUrls: string[]): Promise<{ inde
     if (!response.ok) continue
 
     const raw = await response.text()
+    const contentType = response.headers.get('content-type')
     const sourceName = new URL(sourceUrl).hostname
-    const chunks = splitIntoChunks(sourceName, sourceUrl, raw)
+    const chunks = isLikelyXml(raw, contentType)
+      ? parseXmlRecords(raw).flatMap((record, index) => {
+          const combined = record.title ? `${record.title}\n${record.body}` : record.body
+          return splitIntoChunks(
+            sourceName,
+            `${sourceUrl}#entry-${index + 1}`,
+            combined,
+            record.updatedAt,
+          )
+        })
+      : splitIntoChunks(sourceName, sourceUrl, raw)
 
     await Promise.all(
       chunks.map((chunk) =>
