@@ -29,7 +29,7 @@ const initialState: State = {
   conversations: [],
   currentConversationId: null,
   isLoading: false,
-  isBannerVisible: true
+  isBannerVisible: false
 }
 
 export const store = createStore<State>(initialState)

@@ -4,6 +4,18 @@ export interface Message {
   content: string
 }
 
+/** Thrown when the backend chat endpoint returns a non-ok response (e.g. 503). */
+export class ChatApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly detail?: string
+  ) {
+    super(message)
+    this.name = 'ChatApiError'
+  }
+}
+
 const getApiBase = (): string => {
   const url = import.meta.env.VITE_API_URL
   return typeof url === 'string' && url.trim() ? url.trim().replace(/\/$/, '') : 'http://localhost:8000'
@@ -36,8 +48,9 @@ export async function genAIResponse(params: {
     }),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error((err as { error?: string }).error ?? 'Failed to get AI response')
+    const err = await res.json().catch(() => ({ detail: res.statusText })) as { detail?: string; error?: string }
+    const message = err.detail ?? err.error ?? res.statusText ?? 'Failed to get AI response'
+    throw new ChatApiError(message, res.status, err.detail)
   }
   return res
 }

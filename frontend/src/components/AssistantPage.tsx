@@ -8,7 +8,7 @@ import { Sidebar } from './Sidebar';
 import { WelcomeScreen } from './WelcomeScreen';
 import { TopBanner } from './TopBanner';
 import { useConversations, useAppState, store, actions } from '../store';
-import { genAIResponse, type Message } from '../utils';
+import { genAIResponse, ChatApiError, type Message } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
 
 export function AssistantPage() {
@@ -24,7 +24,7 @@ export function AssistantPage() {
     addMessage,
   } = useConversations();
 
-  const { isLoading, setLoading, getActivePrompt } = useAppState();
+  const { isLoading, setLoading, getActivePrompt, setBannerVisible } = useAppState();
 
   const messages = useMemo(() => currentConversation?.messages || [], [currentConversation]);
 
@@ -138,16 +138,19 @@ export function AssistantPage() {
         }
       } catch (err) {
         console.error('Error in AI response:', err);
+        if (err instanceof ChatApiError) {
+          setBannerVisible(true);
+        }
+        const displayMessage = err instanceof ChatApiError ? err.message : 'Sorry, I encountered an error generating a response. Please set the required API keys in your environment variables.';
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant' as const,
-          content:
-            'Sorry, I encountered an error generating a response. Please set the required API keys in your environment variables.',
+          content: displayMessage,
         };
         await addMessage(conversationId, errorMessage);
       }
     },
-    [messages, getActivePrompt, addMessage, token]
+    [messages, getActivePrompt, addMessage, token, setBannerVisible]
   );
 
   const handleSubmit = useCallback(
@@ -192,10 +195,14 @@ export function AssistantPage() {
         await processAIResponse(conversationId, userMessage);
       } catch (err) {
         console.error('Error:', err);
+        if (err instanceof ChatApiError) {
+          setBannerVisible(true);
+        }
+        const displayMessage = err instanceof ChatApiError ? err.message : 'Sorry, I encountered an error processing your request.';
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant' as const,
-          content: 'Sorry, I encountered an error processing your request.',
+          content: displayMessage,
         };
         if (currentConversationId) {
           await addMessage(currentConversationId, errorMessage);
@@ -215,6 +222,7 @@ export function AssistantPage() {
       addMessage,
       processAIResponse,
       setLoading,
+      setBannerVisible,
     ]
   );
 
