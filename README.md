@@ -293,6 +293,27 @@ For persistent storage of conversations:
 VITE_CONVEX_URL=your_convex_deployment_url
 ```
 
+### Netlify RAG Configuration (Functions + Blobs)
+
+This project includes two Netlify-native RAG functions:
+
+1. `crawl-city-sources`: scheduled indexing job that fetches official source pages and stores chunks in Netlify Blobs.
+2. `retrieve-context`: query-time retrieval endpoint that ranks indexed chunks and returns top matches.
+
+Set these environment variables in Netlify (or local `.env` for development):
+
+```env
+NETLIFY_RAG_SOURCE_URLS=https://www.montgomeryal.gov/,https://www.montgomeryal.gov/services
+NETLIFY_RAG_STORE=civic-rag
+NETLIFY_RAG_TOP_K=5
+```
+
+Notes:
+
+- The index is stored in Netlify Blobs using keys prefixed with `chunk:`.
+- The app's AI pipeline (`src/utils/ai.ts`) now uses Netlify Blobs retrieval via `src/server/rag.ts`.
+- If no chunks are indexed yet, the assistant responds without citations until the next crawl completes.
+
 ## Routing
 This project uses [TanStack Router](https://tanstack.com/router). The initial setup is a file based router. Which means that the routes are managed as files in `src/routes`.
 

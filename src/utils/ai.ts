@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { Anthropic } from '@anthropic-ai/sdk'
+import { retrieveFromRag } from '../server/rag'
 
 export type AppMode = 'citizen' | 'dispatcher'
 
@@ -123,10 +124,23 @@ export const genAIResponse = createServerFn({ method: 'GET', response: 'raw' })
       })
     }
 
+    const userQuery = formattedMessages[formattedMessages.length - 1]?.content || ''
+    const retrievedContext = await retrieveFromRag({
+      query: userQuery,
+      mode: data.mode,
+      residentZip: data.residentZip,
+    })
+    const contextBlock = retrievedContext
+      .map((chunk, index) => `Source ${index + 1}: ${chunk.sourceName}${chunk.note ? ` (${chunk.note})` : ''}\n${chunk.snippet}`)
+      .join('\n\n')
+
     const zipContext = data.residentZip
       ? `User ZIP context: ${data.residentZip}. Add incidentWarning only when verified context supports it.`
       : 'No ZIP context supplied.'
-    const systemPrompt = `${buildSystemPrompt(data.mode)}\n\n${zipContext}`
+    const ragContext = contextBlock
+      ? `Verified retrieved context:\n${contextBlock}`
+      : 'Verified retrieved context: none available.'
+    const systemPrompt = `${buildSystemPrompt(data.mode)}\n\n${zipContext}\n\n${ragContext}`
 
     try {
       const completion = await anthropic.messages.create({
@@ -142,6 +156,12 @@ export const genAIResponse = createServerFn({ method: 'GET', response: 'raw' })
         .join('\n')
 
       const parsed = parseAIResponse(rawText)
+      if ((!parsed.citations || parsed.citations.length === 0) && retrievedContext.length > 0) {
+        parsed.citations = retrievedContext.map((chunk) => ({
+          sourceName: chunk.sourceName,
+          note: chunk.note,
+        }))
+      }
 
       return new Response(JSON.stringify(parsed), {
         headers: {

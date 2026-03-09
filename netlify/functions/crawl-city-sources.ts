@@ -1,52 +1,34 @@
 import type { Handler } from '@netlify/functions'
+import { indexSourcesFromUrls } from '../../src/server/rag'
 
-interface CrawlRecord {
-  sourceName: string
-  capturedAt: string
-  payload: string
-}
-
-// Scheduled entry point for crawling verified Montgomery city sources via Bright Data.
+// Scheduled entry point for indexing official city sources into Netlify Blobs.
 export const handler: Handler = async () => {
-  const endpoint = process.env.BRIGHTDATA_CRAWLER_ENDPOINT
-  const token = process.env.BRIGHTDATA_TOKEN
+  const sourceConfig = process.env.NETLIFY_RAG_SOURCE_URLS || ''
+  const sourceUrls = sourceConfig
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
 
-  if (!endpoint || !token) {
+  if (sourceUrls.length === 0) {
     return {
-      statusCode: 500,
+      statusCode: 400,
       body: JSON.stringify({
         ok: false,
-        message: 'Missing Bright Data configuration. Set BRIGHTDATA_CRAWLER_ENDPOINT and BRIGHTDATA_TOKEN.',
+        message: 'Missing NETLIFY_RAG_SOURCE_URLS. Provide a comma-separated list of crawl URLs.',
       }),
     }
   }
 
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        dataset: 'montgomery-official-sources',
-      }),
-    })
+    const result = await indexSourcesFromUrls(sourceUrls)
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      return {
-        statusCode: 502,
-        body: JSON.stringify({ ok: false, message: errorText }),
-      }
-    }
-
-    const result = (await response.json()) as { records?: CrawlRecord[] }
-
-    // TODO: push normalized chunks to vector index after adding embeddings provider.
     return {
       statusCode: 200,
-      body: JSON.stringify({ ok: true, recordCount: result.records?.length ?? 0 }),
+      body: JSON.stringify({
+        ok: true,
+        indexedChunks: result.indexed,
+        indexedSources: result.sourceCount,
+      }),
     }
   } catch (error) {
     return {

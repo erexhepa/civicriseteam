@@ -1,14 +1,13 @@
 import type { Handler } from '@netlify/functions'
-
-interface RetrievedChunk {
-  sourceName: string
-  snippet: string
-  note?: string
-}
+import { retrieveFromRag } from '../../src/server/rag'
 
 // Retrieval endpoint used by the LLM layer to fetch verified city context.
 export const handler: Handler = async (event) => {
   const query = event.queryStringParameters?.query?.trim()
+  const modeParam = event.queryStringParameters?.mode
+  const residentZip = event.queryStringParameters?.residentZip?.trim()
+  const topKParam = event.queryStringParameters?.topK
+
   if (!query) {
     return {
       statusCode: 400,
@@ -16,17 +15,29 @@ export const handler: Handler = async (event) => {
     }
   }
 
-  // TODO: Replace stub with actual vector search (Convex vector index or external DB).
-  const chunks: RetrievedChunk[] = [
-    {
-      sourceName: 'Montgomery Public Works Bulletin',
-      snippet: `No verified record found for query: ${query}`,
-      note: 'RAG backend not yet connected to live index.',
-    },
-  ]
+  const mode = modeParam === 'dispatcher' ? 'dispatcher' : 'citizen'
+  const topK = topKParam ? Number(topKParam) : undefined
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ ok: true, chunks }),
+  try {
+    const chunks = await retrieveFromRag({
+      query,
+      mode,
+      residentZip,
+      topK: Number.isFinite(topK as number) ? topK : undefined,
+    })
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ ok: true, chunks }),
+    }
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        ok: false,
+        message: error instanceof Error ? error.message : 'Netlify RAG retrieval failed.',
+      }),
+    }
   }
+
 }
